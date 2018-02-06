@@ -432,7 +432,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			spin_unlock(&pidlist_lock);
 		}
 		// Check if syscall is being monitoring
-		if(check_pid_monitored(syscall, pid) == 1){ // Was being monitored
+		else if(check_pid_monitored(syscall, pid) == 1){ // Was being monitored
 			// Critical section
 			spin_lock(&pidlist_lock);
 			// Removing pid from monitor list
