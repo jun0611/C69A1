@@ -249,11 +249,12 @@ void (*orig_exit_group)(int);
  * The exiting process's PID can be retrieved using the current variable (current->pid).
  * Don't forget to call the original exit_group.
  */
-void my_exit_group(int status)
-{
+void my_exit_group(int status) {
 
-
-
+	spin_lock(&pidlist_lock);
+	del_pid(current->pid);
+	spin_unlock(&pidlist_lock);
+	orig_exit_group(status);
 }
 //----------------------------------------------------------------
 
@@ -478,7 +479,7 @@ static int init_function(void) {
 	table[orig_custom_syscall].f = sys_call_table[MY_CUSTOM_SYSCALL];
 	table[orig_exit_group].f = sys_call_table[__NR_exit_group];
 	sys_call_table[MY_CUSTOM_SYSCALL] = &my_syscall;
-	sys_call_table[__NR_exit_group] = &exit_function;
+	sys_call_table[__NR_exit_group] = &my_exit_group;
 	set_addr_ro((unsigned long)sys_call_table);
 	spin_unlock(&calltable_lock);
 
