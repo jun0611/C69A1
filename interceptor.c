@@ -282,7 +282,7 @@ asmlinkage long interceptor(struct pt_regs reg) {
 	int monitoredFlag = table[syscall].monitored;
 	//check if the syscall has any pid monitored, if yes log message
 	if ((monitoredFlag == 2) || (monitoredFlag == 1 && check_pid_monitored(syscall, current->pid) == 1)){
-		log_message(current->pid, syscall, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.dp);
+		log_message(current->pid, syscall, reg.bx, reg.cx, reg.dx, reg.si, reg.di, reg.bp);
 	}
 	return table[syscall].f(reg);	//call the original system call
 }
@@ -394,6 +394,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			// Permission Error Checking
 			if((pid == 0) || (check_pid_from_list(current->pid, pid) != 0)){
 				return -EPERM;
+			}
 		}
 		// Check if syscall is being monitoring
 		if (check_pid_monitored(syscall, pid) != 1){ // Was not being monitored
@@ -424,6 +425,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			// Permission Error Checking
 			if((pid == 0) || (check_pid_from_list(current->pid, pid) != 0)){
 				return -EPERM;
+			}
 		}
 		// Root User
 		if(current_uid() == 0 && pid == 0){
@@ -446,7 +448,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 		else{ // Was not being Monitored
 			return -EINVAL;
 		}
-	}	
+	}
 	return 0;
 }
 
