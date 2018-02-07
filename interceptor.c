@@ -278,7 +278,7 @@ void my_exit_group(int status) {
  */
 asmlinkage long interceptor(struct pt_regs reg) {
 
-	int syscall = reg.ax;
+	long syscall = reg.ax;
 	int monitoredFlag = table[syscall].monitored;
 	//check if the syscall has any pid monitored, if yes log message
 	if ((monitoredFlag == 2) || (monitoredFlag == 1 && check_pid_monitored(syscall, current->pid) == 1)){
