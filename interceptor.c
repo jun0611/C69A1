@@ -444,8 +444,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 				spin_unlock(&pidlist_lock);
 				return -EINVAL;
 			}
-			spin_unlock(&pidlist_lock);
-		}
+			spin_unlock(&pidlist_lock);		}
 		else{ // Was not being Monitored
 			return -EINVAL;
 		}
@@ -461,8 +460,7 @@ long (*orig_custom_syscall)(void);
 
 /**
  * Module initialization. 
- *
- * TODO: Make sure to:  
+ * * TODO: Make sure to:  
  * - Hijack MY_CUSTOM_SYSCALL and save the original in orig_custom_syscall.
  * - Hijack the exit_group system call (__NR_exit_group) and save the original 
  *   in orig_exit_group.
@@ -489,7 +487,7 @@ static int init_function(void) {
 	spin_unlock(&calltable_lock);
 
 	spin_lock(&pidlist_lock);
-	for (i = 0; i <= NR_syscalls; i++)
+	for (i = 1; i < NR_syscalls; i++)
 	{
 		LIST_HEAD(listHead);
 		//table[i].f = sys_call_table[i];
