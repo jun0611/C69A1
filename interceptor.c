@@ -354,10 +354,10 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 			return -EBUSY;
 		}
 		//update mytable
-		spin_lock(&pidlist_lock);
+		//spin_lock(&pidlist_lock);
 		table[syscall].f = sys_call_table[syscall];
 		table[syscall].intercepted = 1;
-		spin_unlock(&pidlist_lock);
+		//spin_unlock(&pidlist_lock);
 		//write our interceptor in the system call table
 		spin_lock(&calltable_lock);
 		set_addr_rw((unsigned long)sys_call_table);
@@ -378,10 +378,10 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 		set_addr_ro((unsigned long)sys_call_table);
 		spin_unlock(&calltable_lock);
 		//update my_table
-		spin_lock(&pidlist_lock);
 		table[syscall].intercepted = 0;
-		destroy_list(syscall);
 		table[syscall].monitored = 0;
+		spin_lock(&pidlist_lock);
+		destroy_list(syscall);
 		spin_unlock(&pidlist_lock);
 	}
 	else if (cmd == REQUEST_START_MONITORING){
@@ -486,17 +486,17 @@ static int init_function(void) {
 	set_addr_ro((unsigned long)sys_call_table);
 	spin_unlock(&calltable_lock);
 
-	spin_lock(&pidlist_lock);
 	for (i = 1; i < NR_syscalls; i++)
 	{
-		LIST_HEAD(listHead);
+		//LIST_HEAD(listHead);
+		struct list_head lst;
+		INIT_LIST_HEAD(&lst);
 		//table[i].f = sys_call_table[i];
 		table[i].intercepted = 0;
 		table[i].monitored = 0;
-		table[i].my_list = listHead;
+		table[i].my_list = lst;
 	}
 
-    spin_unlock(&pidlist_lock);
 	return 0;
 }
 
