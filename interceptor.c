@@ -251,10 +251,12 @@ void (*orig_exit_group)(int);
  */
 void my_exit_group(int status) {
 
-	//spin_lock(&pidlist_lock);
+	spin_lock(&pidlist_lock);
 	//curent might be null
-	del_pid(current->pid);
-	//spin_unlock(&pidlist_lock);
+	if (current != NULL) {
+		del_pid(current->pid);
+	}
+	spin_unlock(&pidlist_lock);
 	orig_exit_group(status);
 }
 //----------------------------------------------------------------
@@ -475,26 +477,21 @@ long (*orig_custom_syscall)(void);
 static int init_function(void) {
 	int i = 0;
 
-	//spin_lock(&calltable_lock);
+	spin_lock(&calltable_lock);
 	set_addr_rw((unsigned long)sys_call_table);
 	orig_custom_syscall = sys_call_table[MY_CUSTOM_SYSCALL];
-	//table[orig_custom_syscall].f = sys_call_table[MY_CUSTOM_SYSCALL];
 	orig_exit_group = sys_call_table[__NR_exit_group];
-	//table[orig_exit_group].f = sys_call_table[__NR_exit_group];
 	sys_call_table[MY_CUSTOM_SYSCALL] = &my_syscall;
 	sys_call_table[__NR_exit_group] = &my_exit_group;
 	set_addr_ro((unsigned long)sys_call_table);
-	//spin_unlock(&calltable_lock);
-
-	for (i = 1; i < NR_syscalls; i++)
+	spin_unlock(&calltable_lock);
+	//initialization for bookkeeping data structure
+	for (i = 0; i < NR_syscalls; i++)
 	{
-		//LIST_HEAD(listHead);
-		struct list_head lst;
-		INIT_LIST_HEAD(&lst);
-		//table[i].f = sys_call_table[i];
 		table[i].intercepted = 0;
 		table[i].monitored = 0;
-		table[i].my_list = lst;
+		table[i].listcount = 0;
+		INIT_LIST_HEAD(&(table[i].my_list));
 	}
 
 	return 0;
