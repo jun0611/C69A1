@@ -218,9 +218,9 @@ static int check_pid_monitored(int sysc, pid_t pid) {
 	struct list_head *i;
 	struct pid_list *ple;
 
-#	list_for_each(i, &(table[sysc].my_list)) {
+	list_for_each(i, &(table[sysc].my_list)) {
 
-s		ple=list_entry(i, struct pid_list, list);
+		ple=list_entry(i, struct pid_list, list);
 		if(ple->pid == pid) 
 			return 1;
 		
@@ -230,7 +230,7 @@ s		ple=list_entry(i, struct pid_list, list);
 //----------------------------------------------------------------
 
 //----- Intercepting exit_group ----------------------------------
-k/**
+/**
  * Since a process can exit without its owner specifically requesting
  * to stop monitoring it, we must intercept the exit_group system call
  * so that we can remove the exiting process's pid from *all* syscall lists.
