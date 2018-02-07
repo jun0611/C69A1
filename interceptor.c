@@ -475,7 +475,7 @@ long (*orig_custom_syscall)(void);
 static int init_function(void) {
 	int i = 0;
 
-	spin_lock(&calltable_lock);
+	//spin_lock(&calltable_lock);
 	set_addr_rw((unsigned long)sys_call_table);
 	orig_custom_syscall = sys_call_table[MY_CUSTOM_SYSCALL];
 	//table[orig_custom_syscall].f = sys_call_table[MY_CUSTOM_SYSCALL];
@@ -484,7 +484,7 @@ static int init_function(void) {
 	sys_call_table[MY_CUSTOM_SYSCALL] = &my_syscall;
 	sys_call_table[__NR_exit_group] = &my_exit_group;
 	set_addr_ro((unsigned long)sys_call_table);
-	spin_unlock(&calltable_lock);
+	//spin_unlock(&calltable_lock);
 
 	for (i = 1; i < NR_syscalls; i++)
 	{
