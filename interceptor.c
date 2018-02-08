@@ -394,7 +394,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 	}
 	else if (cmd == REQUEST_START_MONITORING){
 		// PID Error Check
-        	if ((pid < 0) || (pid_task(find_vpid(pid), PIDTYPE_PID) != 0)) { 
+        if ((pid < 0) || (pid_task(find_vpid(pid), PIDTYPE_PID) == NULL)) { 
 			return -EINVAL;
 		}
 
@@ -402,7 +402,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 		if (current_uid() != 0){ // Current User is not root
 			// Permission Error Checking
 			if((pid == 0) || (check_pid_from_list(current->pid, pid) != 0)){
-				return -EPERM;
+					return -EPERM;
 			}
 		}
 		if(table[syscall].intercepted == 1){ //System was intercepted
@@ -461,8 +461,8 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 		// Root Error
 		if (current_uid() != 0){ // Current User is not root
 			// Permission Error Checking
-			if((pid == 0) || (check_pid_from_list(current->pid, pid) != 0)){
-				return -EPERM;
+			if((pid == 0) || (check_pid_from_list(current->pid, pid) != 0)) {
+					return -EPERM;
 			}
 		}
 		if(table[syscall].intercepted == 1){ //System was intercepted
