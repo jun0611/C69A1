@@ -394,7 +394,7 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 	}
 	else if (cmd == REQUEST_START_MONITORING){
 		// PID Error Check
-        	if ((pid < 0) || (pid_task(find_vpid(pid), PIDTYPE_PID) == NULL)) { 
+        	if ((pid < 0) || (pid_task(find_vpid(pid), PIDTYPE_PID) != 0)) { 
 			return -EINVAL;
 		}
 
@@ -569,7 +569,7 @@ static int init_function(void) {
  * - Ensure synchronization, if needed.
  */
 static void exit_function(void)
-{        
+{     
 
 	//Getting calltable Lock
 	spin_lock(&calltable_lock);
