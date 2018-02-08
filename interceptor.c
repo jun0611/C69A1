@@ -408,28 +408,46 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 		if(table[syscall].intercepted == 1){ //System was intercepted
 			// Root User
 			if(current_uid() == 0 && pid == 0){
-				table[syscall].monitored = 2;
-			// Check if syscall is being monitoring
-			} else if (check_pid_monitored(syscall, pid) != 1){ // Was not being monitored
-				// Critical section
+				//make the black list empty
 				spin_lock(&pidlist_lock);
-				//Add Pid to monitor list
-				if(add_pid_sysc(pid, syscall) != 0){
-					// Was not able to be added to monitored list
-					spin_unlock(&pidlist_lock);
-					return -ENOMEM;	
-				}
-				// Was able to add to monitor list
+				destroy_list(syscall);
+				table[syscall].listcount = 0;
 				spin_unlock(&pidlist_lock);
-				if((table[syscall].monitored) == 0) {
-					table[syscall].monitored = 1;
+				table[syscall].monitored = 2;
+			// Check if syscall is being monitored (JUN)
+			} else { 
+				if(table[syscall].monitored == 2) {
+					if (check_pid_monitored(syscall, pid) == 1){ // pid is in the black list
+						spin_lock(&pidlist_lock);
+						del_pid_sysc(pid, syscall)
+						table[syscall].listcount -= 1;
+						spin_unlock(&pidlist_lock);
+					} else {
+						return -EBUSY;
+					}
+				} else {
+					if (check_pid_monitored(syscall, pid) != 1){ // Was not being monitored
+						// Critical section
+						spin_lock(&pidlist_lock);
+						//Add Pid to monitor list
+						if(add_pid_sysc(pid, syscall) != 0){
+							// Was not able to be added to monitored list
+							spin_unlock(&pidlist_lock);
+							return -ENOMEM;	
+						}
+						// Was able to add to monitor list
+						table[syscall].listcount += 1;
+						spin_unlock(&pidlist_lock);
+						if((table[syscall].monitored) == 0) {
+							table[syscall].monitored = 1;
+						}
+					}
+					else{ // Was already being monitored
+						return -EBUSY;
+					}
 				}
 			}
-			else{ // Was already being monitored
-				return -EBUSY;
-			}
-		}
-		else{ //System was not intercept
+		} else { //System was not intercept
 			return -EINVAL;
 		}
 	}
@@ -453,33 +471,44 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 				table[syscall].monitored = 0;
 				spin_lock(&pidlist_lock);
 				destroy_list(syscall);
+				table[syscall].listcount = 0;
 				spin_unlock(&pidlist_lock);
-			}
-			// Check if syscall is being monitoring
-			else if(check_pid_monitored(syscall, pid) == 1){ // Was being monitored
-				// Critical section
-				spin_lock(&pidlist_lock);
-				// Removing pid from monitor list
-				if(del_pid_sysc(pid, syscall) != 0){
-					// Was unable to del pid from list
-					spin_unlock(&pidlist_lock);
+			} else {
+				if(table[syscall].monitored == 2) {
+					if (check_pid_monitored(syscall, pid) != 1){ // pid is not in the black list (it is being monitored)
+						spin_lock(&pidlist_lock);
+						add_pid_sysc(pid, syscall);
+						table[syscall].listcount += 1;
+						spin_unlock(&pidlist_lock);
+					} else { // pid is already in the black list
+						return -EINVAL;
+					}
+				} else if (table[syscall].monitored == 1) {
+					// Check if syscall is being monitoring
+					if(check_pid_monitored(syscall, pid) == 1){ // Was being monitored
+						// Critical section
+						spin_lock(&pidlist_lock);
+						// Removing pid from monitor list
+						if(del_pid_sysc(pid, syscall) != 0){
+							// Was unable to del pid from list
+							spin_unlock(&pidlist_lock);
+							return -EINVAL;
+						}
+						table[syscall].listcount -= 1;
+						spin_unlock(&pidlist_lock);
+						//if last pid being monitored is removed, set monitored to 0
+						if(table[syscall].listcount == 0) {
+							table[syscall].monitored = 0;
+						}
+					} else { // Was not being Monitored
+						return -EINVAL;
+					}
+				} else { // if nothing is being monitored
 					return -EINVAL;
 				}
-				spin_unlock(&pidlist_lock);
-				if(table[syscall].monitored == 2) {
-					table[syscall].monitored = 1;
-				}
-				if(table[syscall].monitored == 1) {
-					if(){
-						table[syscall].monitored = 0;
-					}
-				}
-			} 
-			else { // Was not being Monitored
-				return -EINVAL;
 			}
 		}
-		else{ //System was not intercepted
+		else { //System was not intercepted
 			return -EINVAL;
 		}
 	}
