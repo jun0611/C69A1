@@ -256,7 +256,7 @@ void my_exit_group(int status) {
 	if (current != NULL) {
 		del_pid(current->pid);
 	}
-	spin_unlock(&pidlist_lock);
+	-spin_unlock(&pidlist_lock);
 	orig_exit_group(status);
 }
 //----------------------------------------------------------------
@@ -295,7 +295,7 @@ asmlinkage long interceptor(struct pt_regs reg) {
  * When that happens, the parameters for this system call indicate one of 4 actions/commands:
  *      - REQUEST_SYSCALL_INTERCEPT to intercept the 'syscall' argument
  *      - REQUEST_SYSCALL_RELEASE to de-intercept the 'syscall' argument
- *      - REQUEST_START_MONITORING to start monitoring for 'pid' whenever it issues 'syscall' 
+ *   -   - REQUEST_START_MONITORING to start monitoring for 'pid' whenever it issues 'syscall' 
  *      - REQUEST_STOP_MONITORING to stop monitoring for 'pid'
  *      For the last two, if pid=0, that translates to "all pids".
  * 
@@ -334,7 +334,7 @@ asmlinkage long interceptor(struct pt_regs reg) {
  *   For example: set_addr_rw((unsigned long)sys_call_table);
  *   Also, make sure to save the original system call (you'll need it for 'interceptor' to work correctly).
  * 
- * - Make sure to use synchronization to ensure consistency of shared data structures.
+ * - M-ake sure to use synchronization to ensure consistency of shared data structures.
  *   Use the calltable_spinlock and pidlist_spinlock to ensure mutual exclusion for accesses 
  *   to the system call table and the lists of monitored pids. Be careful to unlock any spinlocks 
  *   you might be holding, before you exit the function (including error cases!).  
@@ -352,6 +352,9 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 	//Check which cmd is it
 	//REQUEST_SYSCALL_INTERCEPT
 	if (cmd == REQUEST_SYSCALL_INTERCEPT) {
+		if(current_uid() != 0) {
+			return -EPERM;
+		}
 		if(table[syscall].intercepted == 1) {
 			return -EBUSY;
 		}
@@ -370,6 +373,9 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 	//REQUEST_SYSCALL_RELEASE
 	} 
 	else if (cmd == REQUEST_SYSCALL_RELEASE) {
+		if(current_uid() != 0) {
+			return -EPERM;
+		}
 		if(table[syscall].intercepted == 0) {
 			return -EINVAL;
 		}
@@ -399,21 +405,32 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 				return -EPERM;
 			}
 		}
-		// Check if syscall is being monitoring
-		if (check_pid_monitored(syscall, pid) != 1){ // Was not being monitored
-			// Critical section
-			spin_lock(&pidlist_lock);
-			//Add Pid to monitor list
-			if(add_pid_sysc(pid, syscall) != 0){
-				// Was not able to be added to monitored list
+		if(table[syscall].intercepted == 1){ //System was intercepted
+			// Root User
+			if(current_uid() == 0 && pid == 0){
+				table[syscall].monitored = 2;
+			// Check if syscall is being monitoring
+			} else if (check_pid_monitored(syscall, pid) != 1){ // Was not being monitored
+				// Critical section
+				spin_lock(&pidlist_lock);
+				//Add Pid to monitor list
+				if(add_pid_sysc(pid, syscall) != 0){
+					// Was not able to be added to monitored list
+					spin_unlock(&pidlist_lock);
+					return -ENOMEM;	
+				}
+				// Was able to add to monitor list
 				spin_unlock(&pidlist_lock);
-				return -ENOMEM;	
+				if((table[syscall].monitored) == 0) {
+					table[syscall].monitored = 1;
+				}
 			}
-			// Was able to add to monitor list
-			spin_unlock(&pidlist_lock);
+			else{ // Was already being monitored
+				return -EBUSY;
+			}
 		}
-		else{ // Was already being monitored
-			return -EBUSY;
+		else{ //System was not intercept
+			return -EINVAL;
 		}
 	}
 	//Check CMD = Stop Monitor  
@@ -430,24 +447,39 @@ asmlinkage long my_syscall(int cmd, int syscall, int pid) {
 				return -EPERM;
 			}
 		}
-		// Root User
-		if(current_uid() == 0 && pid == 0){
-			spin_lock(&pidlist_lock);
-			destroy_list(syscall);
-			spin_unlock(&pidlist_lock);
-		}
-		// Check if syscall is being monitoring
-		else if(check_pid_monitored(syscall, pid) == 1){ // Was being monitored
-			// Critical section
-			spin_lock(&pidlist_lock);
-			// Removing pid from monitor list
-			if(del_pid_sysc(pid, syscall) != 0){
-				// Was unable to del pid from list
+		if(table[syscall].intercepted == 1){ //System was intercepted
+			// Root User
+			if(current_uid() == 0 && pid == 0){
+				table[syscall].monitored = 0;
+				spin_lock(&pidlist_lock);
+				destroy_list(syscall);
 				spin_unlock(&pidlist_lock);
+			}
+			// Check if syscall is being monitoring
+			else if(check_pid_monitored(syscall, pid) == 1){ // Was being monitored
+				// Critical section
+				spin_lock(&pidlist_lock);
+				// Removing pid from monitor list
+				if(del_pid_sysc(pid, syscall) != 0){
+					// Was unable to del pid from list
+					spin_unlock(&pidlist_lock);
+					return -EINVAL;
+				}
+				spin_unlock(&pidlist_lock);
+				if(table[syscall].monitored == 2) {
+					table[syscall].monitored = 1;
+				}
+				if(table[syscall].monitored == 1) {
+					if(){
+						table[syscall].monitored = 0;
+					}
+				}
+			} 
+			else { // Was not being Monitored
 				return -EINVAL;
 			}
-			spin_unlock(&pidlist_lock);		}
-		else{ // Was not being Monitored
+		}
+		else{ //System was not intercepted
 			return -EINVAL;
 		}
 	}
